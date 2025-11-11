@@ -33,6 +33,10 @@ function Lua:assert(...)
 	error(ffi.string(chr), 2)
 end
 
+function Lua:getglobal(f)
+	lib.lua_getfield(self.L, lib.LUA_GLOBALSINDEX, 'load')
+end
+
 function Lua:pushargs(n, x, ...)
 	if n <= 0 then return end
 	local L = self.L
@@ -48,9 +52,12 @@ function Lua:pushargs(n, x, ...)
 		lib.lua_pushboolean(L, x and 1 or 0)
 	elseif t == 'function' then
 		local str = string.dump(x)
+		self:getglobal'load'
 		lib.lua_pushlstring(L, str, #str)
-	-- threads
-	-- tables
+		lib.lua_pcall(L, 1, 1, 0)
+	--elseif t == 'thread' then
+	--	TODO string.buffer serialization?
+	--elseif t == 'table' then
 	else
 		print('WARNING: idk how to push '..t)
 		lib.lua_pushnil(L)
@@ -107,7 +114,7 @@ end
 -- serializes and passes any args into 'code's function
 -- calls the function
 -- returns the results, cast as a uintptr_t*
-function Lua:load(code, ...)
+function Lua:run(code, ...)
 	local L = self.L
 	local top = lib.lua_gettop(L)
 
@@ -122,6 +129,10 @@ function Lua:load(code, ...)
 
 	-- convert args on stack, reset top, and return converted args
 	return self:settop(top, self:popargs(newtop - top, top + 1))
+end
+
+function Lua:__call(code, ...)
+	return self:run(code, ...)
 end
 
 return Lua
