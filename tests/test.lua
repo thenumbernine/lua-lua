@@ -15,5 +15,17 @@ return 42, 'bar'
 assert.eq(x, 42)
 assert.eq(y, 'bar')
 
+-- right now it just returns errors.
+-- TODO error handling.
+-- how, idk?
+-- how about the default :run() / __call() throws errors into the parent lua_State?
+-- and then I'll provide a separate Lua:pcall() that returns errors ...
+-- ... and maybe maybe a separate Lua:xpcall that passes the error-handler across ...
+local result = lua([[
+error'here'
+return result
+]])
+assert.eq(result, [[[string "error'here'..."]:1: here]])
+
 lua:close()
 print'done'
