@@ -59,28 +59,50 @@ function Lua:pushargs(n, x, ...)
 	return self:pushargs(n-1, ...)
 end
 
+function Lua:popargs(n, i)
+	if n <= 0 then return end
+	local L = self.L
+
+	local luatype = lib.lua_type(L, i)
+
+	local result
+	if luatype == lib.LUA_TCDATA then
+		local ptr = lib.lua_topointer(L, i)
+		-- and here we assert that code's function passes back a uintptr_t[1] of the closure-cast function ptr of the function it wants to return
+		-- (while saving a ref of it in the enclosed Lua state so it doesnt get gc'd)
+		result = ffi.cast("uintptr_t*", ptr)
+		if result ~= nil then result = result[0] end
+	else
+		print("WARNING: idk how to pop "..tostring(luatype))
+	end
+	return result, self:popargs(n-1, i+1)
+end
+
+function Lua:settop(top, ...)
+	lib.lua_settop(self.L, top)
+	return ...
+end
+
 -- this is very specific to pureffi/threads.lua's "threads.new" function
 -- loads 'code' in the enclosed Lua state
 -- serializes and passes any args into 'code's function
 -- calls the function
 -- returns the results, cast as a uintptr_t*
-function Lua:loadfunc(code, ...)
+function Lua:load(code, ...)
 	local L = self.L
+	local top = lib.lua_gettop(L)
+
 	self:assert(lib.luaL_loadstring(L, code))
 
-	-- this is a serialize-deserialize layer to ensure that whatever is passed through 'func' changes context to the new Lua state
+	-- this is a serialize-deserialize layer to ensure that whatever is passed through changes to the new Lua state
 	local n = select('#', ...)
 	self:pushargs(n, ...)
 
-	self:assert(lib.lua_pcall(L, n, 1, 0))
-	local ptr = lib.lua_topointer(L, -1)
-	lib.lua_settop(L, -2)
+	self:assert(lib.lua_pcall(L, n, lib.LUA_MULTRET, 0))
+	local newtop = lib.lua_gettop(L)
 
-	-- and here we assert that code's function passes back a uintptr_t[1] of the closure-cast function ptr of the function it wants to return
-	-- (while saving a ref of it in the enclosed Lua state so it doesnt get gc'd)
-	local box = ffi.cast("uintptr_t*", ptr)
-	if box == nil then return nil end
-	return box[0]
+	-- convert args on stack, reset top, and return converted args
+	return self:settop(top, self:popargs(newtop - top, top + 1))
 end
 
 return Lua
