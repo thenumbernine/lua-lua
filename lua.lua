@@ -66,10 +66,29 @@ function Lua:popargs(n, i)
 	local luatype = lib.lua_type(L, i)
 
 	local result
-	if luatype == lib.LUA_TCDATA then
+	if luatype == lib.LUA_TNONE
+	or luatype == lib.LUA_TNIL
+	then
+		-- it's already nil
+	elseif luatype == lib.LUA_TBOOLEAN then
+		result = 0 ~= lib.lua_toboolean(L, i)
+	elseif luatype == lib.LUA_TLIGHTUSERDATA then
+		result = lib.lua_topointer(L, i)	-- is this ok?
+	elseif luatype == lib.LUA_TNUMBER then
+		result = lib.lua_tonumber(L, i)
+	elseif luatype == lib.LUA_TSTRING then
+		local len = ffi.new'size_t[1]'
+		local ptr = lib.lua_tolstring(L, i, len)
+		result = ptr ~= nil and ffi.string(ptr, len[0]) or nil
+	--elseif luatype == lib.LUA_TTABLE then
+	--elseif luatype == lib.LUA_TFUNCTION then
+		-- same trick as above? string.dump and reload?
+	--elseif luatype == lib.LUA_TUSERDATA then
+		-- return a string binary-blob of the data?
+	--elseif luatype == lib.LUA_TTHREAD
+	--elseif luatype == lib.TPROTO
+	elseif luatype == lib.LUA_TCDATA then
 		local ptr = lib.lua_topointer(L, i)
-		-- and here we assert that code's function passes back a uintptr_t[1] of the closure-cast function ptr of the function it wants to return
-		-- (while saving a ref of it in the enclosed Lua state so it doesnt get gc'd)
 		result = ffi.cast("uintptr_t*", ptr)
 		if result ~= nil then result = result[0] end
 	else
