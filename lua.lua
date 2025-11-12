@@ -96,7 +96,9 @@ function Lua:popargs(n, i)
 	--elseif luatype == lib.TPROTO
 	elseif luatype == lib.LUA_TCDATA then
 		local ptr = lib.lua_topointer(L, i)
-		result = ffi.cast("uintptr_t*", ptr)
+		-- I guess all LuaJIT cdata's hold ... pointers ... ? always?
+		-- I suspect this can get me into trouble:
+		result = ffi.cast('void**', ptr)
 		if result ~= nil then result = result[0] end
 	else
 		print("WARNING: idk how to pop "..tostring(luatype))
