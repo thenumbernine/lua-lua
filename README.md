@@ -19,3 +19,5 @@ return f(4)
 ]], function(x) return x + 1 end)
 assert(y == 5)
 ```
+
+Uses my [lua-ffi-bindings](https://github.com/thenumbernine/lua-ffi-bindings) for LuaJIT header porting and library search.
