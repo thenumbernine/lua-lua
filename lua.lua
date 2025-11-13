@@ -21,21 +21,9 @@ function Lua:init()
 	self.L = L
 	lib.luaL_openlibs(L)
 
---local top = lib.lua_gettop(L)
---print("top", top)
 	-- while we're here, create a default Lua error handler, and save it somewhere
-	--local result = lib.luaL_loadstring(L, "return tostring((...))..'\n'..debug.traceback()")
-	--local result = lib.luaL_loadstring(L, "return _G.tostring((...))")	-- "attempt to call a string value"
-	--local result = lib.luaL_loadstring(L, "assert(type((...)), 'string') return 'here'") -- works
-	--local result = lib.luaL_loadstring(L, "assert(type((...)), 'string') return ...") -- works
-	local result = lib.luaL_loadstring(L, "return ...") -- works
-	if result ~= lib.LUA_OK then
-		error("luaL_loadstring error handler failed")
-	end
---assert(lib.lua_type(L, lib.lua_gettop(L)), lib.LUA_TFUNCTION)
+	self:assert(lib.luaL_loadstring(L, [[return tostring((...)) .. '\n' .. debug.traceback()]]))
 	self.errHandlerRef = lib.luaL_ref(L, lib.LUA_REGISTRYINDEX)
-
---assert.eq(top, lib.lua_gettop(L))
 end
 
 function Lua:close()
@@ -54,11 +42,9 @@ function Lua:assert(...)
 	local errcode = ...
 	if not errcode then return ... end
 	if errcode == lib.LUA_OK then return ... end
---print('Lua:assert got error', errcode)
 	assert.eq(lib.lua_type(L, -1), lib.LUA_TSTRING)
 	local chr = lib.lua_tostring(L, -1)
 	local str = ffi.string(chr)
---print('Lua:assert str', str)
 	error(str, errcode)
 end
 
@@ -80,14 +66,12 @@ function Lua:pushargs(n, x, ...)
 	elseif t == 'boolean' then
 		lib.lua_pushboolean(L, x and 1 or 0)
 	elseif t == 'function' then
-		--[[
 		local str = string.dump(x)
 		lib.lua_rawgeti(L, lib.LUA_REGISTRYINDEX, self.errHandlerRef)
 		local errHandlerLoc = lib.lua_gettop(L)
 		lib.luaL_loadbuffer(L, str, #str, 'Lua:pushargs')
-		lib.lua_pcall(L, 1, 1, errHandlerLoc )
+		self:assert(lib.lua_pcall(L, 1, 1, errHandlerLoc))
 		lib.lua_remove(L, errHandlerLoc)
-		--]]
 	--elseif t == 'thread' then
 	--	TODO string.buffer serialization?
 	--elseif t == 'table' then
@@ -154,50 +138,23 @@ end
 -- calls the function
 -- returns the results, cast as a uintptr_t*
 function Lua:run(code, ...)
---print('Lua:run() begin')
---print(require'template.showcode'(code))
 	local L = self.L
 	local top = lib.lua_gettop(L)
---print('top', top)
 	-- push error handler first
 	lib.lua_rawgeti(L, lib.LUA_REGISTRYINDEX, self.errHandlerRef)
 	local errHandlerLoc = lib.lua_gettop(L)
---print('errHandlerLoc', errHandlerLoc)
---assert.eq(errHandlerLoc, top+1)
---assert(lib.lua_type(L, errHandlerLoc), lib.LUA_TFUNCTION)
 
 	-- push functin next
 	self:assert(lib.luaL_loadstring(L, code))
---local funcloc = lib.lua_gettop(L)
---print('funcloc', funcloc)
---assert.eq(errHandlerLoc+1, funcloc)
---assert(lib.lua_type(L, funcloc), lib.LUA_TFUNCTION)
 
 	-- push args next
 	-- this is a serialize-deserialize layer to ensure that whatever is passed through changes to the new Lua state
 	local n = select('#', ...)
---print('nargs', n)
 	self:pushargs(n, ...)
---assert.eq(funcloc+n, lib.lua_gettop(L))
---print('top after pushing args', lib.lua_gettop(L))
 
---print('lib.lua_pcall', L, n, lib.LUA_MULTRET, errHandlerLoc)
-	local result = lib.lua_pcall(L, n, lib.LUA_MULTRET, errHandlerLoc)
---print('pcall result', result)
+	self:assert(lib.lua_pcall(L, n, lib.LUA_MULTRET, errHandlerLoc))
 	local newtop = lib.lua_gettop(L)
---print('pcall newtop', newtop)
-	if result ~= lib.LUA_OK then
---assert.eq(lib.lua_gettop(L), newtop)
---assert.eq(lib.lua_type(L, newtop), lib.LUA_TSTRING)	-- not always true
-		-- rethrow error
-		--local err = self:get(newtop)	-- it's a string, right?
-		--self:settop(top)
-		local err = ffi.string(lib.lua_tostring(L, newtop))
-		lib.lua_pop(L, 1)
-		error('Lua:run(): '..tostring(err))
-	end
 
---print('Lua:run() end')
 	-- convert args on stack, reset top, and return converted args
 	return self:settop(top, self:popargs(newtop - (top+1), top+2))
 end
