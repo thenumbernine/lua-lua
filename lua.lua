@@ -48,15 +48,11 @@ function Lua:assert(...)
 	error(str, errcode)
 end
 
-function Lua:getglobal(f)
-	lib.lua_getfield(self.L, lib.LUA_GLOBALSINDEX, 'load')
-end
-
 function Lua:pushargs(n, x, ...)
 	if n <= 0 then return end
 	local L = self.L
-
 	local t = type(x)
+
 	if t == 'nil' then
 		lib.lua_pushnil(L)
 	elseif t == 'number' then
@@ -67,11 +63,7 @@ function Lua:pushargs(n, x, ...)
 		lib.lua_pushboolean(L, x and 1 or 0)
 	elseif t == 'function' then
 		local str = string.dump(x)
-		lib.lua_rawgeti(L, lib.LUA_REGISTRYINDEX, self.errHandlerRef)
-		local errHandlerLoc = lib.lua_gettop(L)
-		lib.luaL_loadbuffer(L, str, #str, 'Lua:pushargs')
-		self:assert(lib.lua_pcall(L, 1, 1, errHandlerLoc))
-		lib.lua_remove(L, errHandlerLoc)
+		self:assert(lib.luaL_loadbuffer(L, str, #str, 'Lua:pushargs'))
 	--elseif t == 'thread' then
 	--	TODO string.buffer serialization?
 	--elseif t == 'table' then
@@ -83,7 +75,15 @@ function Lua:pushargs(n, x, ...)
 	return self:pushargs(n-1, ...)
 end
 
-function Lua:get(i)
+function Lua:getstring(i)
+	local L = self.L
+	local len = ffi.new(size_t_1)
+	local ptr = lib.lua_tolstring(L, i, len)
+	return ptr ~= nil and ffi.string(ptr, len[0]) or nil
+end
+
+-- get stack location
+function Lua:getstack(i)
 	local L = self.L
 	local luatype = lib.lua_type(L, i)
 	if luatype == lib.LUA_TNONE
@@ -97,12 +97,20 @@ function Lua:get(i)
 	elseif luatype == lib.LUA_TNUMBER then
 		return lib.lua_tonumber(L, i)
 	elseif luatype == lib.LUA_TSTRING then
-		local len = ffi.new(size_t_1)
-		local ptr = lib.lua_tolstring(L, i, len)
-		return ptr ~= nil and ffi.string(ptr, len[0]) or nil
+		return self:getstring(i)
 	--elseif luatype == lib.LUA_TTABLE then
-	--elseif luatype == lib.LUA_TFUNCTION then
+	elseif luatype == lib.LUA_TFUNCTION then
 		-- same trick as above? string.dump and reload?
+		lib.lua_rawgeti(L, lib.LUA_REGISTRYINDEX, self.errHandlerRef)
+		local errHandlerLoc = lib.lua_gettop(L)	-- errHandler
+		lib.lua_getglobal(L, 'string')			-- errHandler, string
+		lib.lua_getfield(L, -1, 'dump')			-- errhandler, string, dump
+		lib.lua_remove(L, -2)					-- errHandler, dump
+		lib.lua_pushvalue(L, i)					-- errHandler, dump, i
+		self:assert(lib.lua_pcall(L, 1, 1, errHandlerLoc))	-- result
+		local data = self:getstring(-1)
+		lib.lua_pop(L, 1)
+		return load(data)
 	--elseif luatype == lib.LUA_TUSERDATA then
 		-- return a string binary-blob of the data?
 	--elseif luatype == lib.LUA_TTHREAD
@@ -123,7 +131,7 @@ end
 function Lua:popargs(n, i)
 	if n <= 0 then return end
 	-- how are args evaluated? left-to-right?
-	local result = self:get(i)
+	local result = self:getstack(i)
 	return result, self:popargs(n-1, i+1)
 end
 
@@ -140,6 +148,7 @@ end
 function Lua:run(code, ...)
 	local L = self.L
 	local top = lib.lua_gettop(L)
+
 	-- push error handler first
 	lib.lua_rawgeti(L, lib.LUA_REGISTRYINDEX, self.errHandlerRef)
 	local errHandlerLoc = lib.lua_gettop(L)
