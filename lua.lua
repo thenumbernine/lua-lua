@@ -1,10 +1,6 @@
 require 'ext.gc'	-- allow __gc for luajit
 local ffi = require 'ffi'
-
--- TODO This will need to vary with what underlying Lua is used to require() this file.
--- Also TODO rename ffi/lua.lua to ffi/lua5.3.lua or whatever version I generated it from.
-local lib = require 'ffi.req' 'luajit'
-
+local lib = require 'lua.ffi'
 local assert = require 'ext.assert'
 local class = require 'ext.class'
 
