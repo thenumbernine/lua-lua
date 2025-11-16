@@ -19,8 +19,13 @@ function Lua:init()
 	lib.luaL_openlibs(L)
 
 	-- while we're here, create a default Lua error handler, and save it somewhere
-	self:assert(lib.luaL_loadstring(L, [[return tostring((...)) .. '\n' .. debug.traceback()]]))
+	self:load[[return tostring((...)) .. '\n' .. debug.traceback()]]
 	self.errHandlerRef = lib.luaL_ref(L, lib.LUA_REGISTRYINDEX)
+end
+
+function Lua:load(str, name)
+	--self:assert(lib.luaL_loadstring(self.L, str))
+	self:assert(lib.luaL_loadbuffer(self.L, str, #str, name or str))
 end
 
 function Lua:close()
@@ -60,7 +65,7 @@ function Lua:pushargs(n, x, ...)
 		lib.lua_pushboolean(L, x and 1 or 0)
 	elseif t == 'function' then
 		local str = string.dump(x)
-		self:assert(lib.luaL_loadbuffer(L, str, #str, 'Lua:pushargs'))
+		self:load(str, 'Lua:pushargs')
 	--elseif t == 'thread' then
 	--	TODO string.buffer serialization?
 	elseif t == 'table' then
@@ -210,7 +215,7 @@ function Lua:run(code, ...)
 	local errHandlerLoc = lib.lua_gettop(L)
 
 	-- push functin next
-	self:assert(lib.luaL_loadstring(L, code))
+	self:load(code)
 
 	-- push args next
 	-- this is a serialize-deserialize layer to ensure that whatever is passed through changes to the new Lua state

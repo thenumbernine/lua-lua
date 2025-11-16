@@ -9,6 +9,7 @@ Allows passing data between states.
 - `lua = Lua()` = create a new Lua state
 - `lua:close()` = close Lua state.  This is automatically called upon `__gc`
 - `lua:run(code, ...)` = runs `code`, passes in `...` as args, returns whats returned.
+- `lua:load(code, [name])` = loads the code and pushes it onto the stack using `luaL_loadbuffer`.
 - `lua:global(name, [value])` = gets/sets the global with name `name`.
 - `lua:pushargs(n, ...)` = push `n` args from Lua data into the Lua state's stack.
 - `lua:popargs(n, i)` = pops `n` arguments starting at location `i` from the Lua state's stack and returns them.
