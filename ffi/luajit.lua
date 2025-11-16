@@ -93,6 +93,9 @@ return setmetatable({
 	lua_getglobal = function(L, s)
 		return lib.lua_getfield(L, lib.LUA_GLOBALSINDEX, s)
 	end,
+	lua_setglobal = function(L, s)
+		return lib.lua_setfield(L, lib.LUA_GLOBALSINDEX, s)
+	end,
 }, {
 	__index = lib,
 })

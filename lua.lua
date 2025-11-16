@@ -80,6 +80,7 @@ function Lua:pushargs(n, x, ...)
 	return self:pushargs(n-1, ...)
 end
 
+-- get stack location as string
 function Lua:getstring(i)
 	local L = self.L
 	local len = ffi.new(size_t_1)
@@ -144,11 +145,26 @@ function Lua:getstack(i)
 	end
 end
 
+-- pop args from stack, convert them, and return them
 function Lua:popargs(n, i)
 	if n <= 0 then return end
 	-- how are args evaluated? left-to-right?
 	local result = self:getstack(i)
 	return result, self:popargs(n-1, i+1)
+end
+
+-- read/write a global
+function Lua:global(name, ...)
+	local L = self.L
+	if select('#', ...) > 0 then
+		-- write a global
+		self:pushargs(1, (...))
+		lib.lua_setglobal(L, name)
+	else
+		-- read a global
+		lib.lua_getglobal(L, name)
+		return self:popargs(1, lib.lua_gettop(L))
+	end
 end
 
 function Lua:settop(top, ...)
