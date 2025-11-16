@@ -9,28 +9,46 @@ lua([[assert(... == false)]], false)
 lua([[assert(... == true)]], true)
 lua([[assert(... == 42)]], 42)
 lua([[assert(... == 'foo')]], 'foo')
+-- pass args in
 lua([[local a,b = ... assert(a == 'foo') assert(b == 'bar')]], 'foo', 'bar')
 
 -- return values
-assert(nil == lua[[return nil]])
-assert(true == lua[[return true]])
-assert(false == lua[[return false]])
-assert(43 == lua[[return 43]])
-assert('bar' == lua[[return 'bar']])
+assert.eq(nil, lua[[return nil]])
+assert.eq(true, lua[[return true]])
+assert.eq(false, lua[[return false]])
+assert.eq(43, lua[[return 43]])
+assert.eq('bar', lua[[return 'bar']])
+-- read args returned out
 local a,b = lua[[return 'foo', 'bar']] assert(a == 'foo') assert(b == 'bar')
 
--- syntax errors
-assert(false == pcall(function() lua[[(;;;)]] end))
+-- handle syntax errors
+assert.eq(false, pcall(function() lua[[(;;;)]] end))
 
--- runtime errors
-assert(false == pcall(function() lua[[error'here']] end))
+-- handle runtime errors
+assert.eq(false, pcall(function() lua[[error'here']] end))
 
--- accepting functions
+-- accept and evaluate functions
 lua([[assert((...)() == 44)]], function() return 44 end)
 lua([[assert((...)(44) == 88)]], function(x) return x * 2 end)
 
 -- returning functions
 local f = lua[[return function() return 42 end]] assert(f() == 42)
+
+-- accept tables
+lua([[local t = ... assert(t.a == 42)]], {a=42})
+
+-- return tables
+assert.eq(43, lua[[return {z=43}]].z)
+
+--[=[
+-- can we accept self-referencing tables?
+-- no, not until I insert ext.tolua/fromlua as a fallback to string.buffer
+do
+	local t = {}
+	t.t = t
+	lua([[local t = ... assert(t.t == t)]], t)
+end
+--]=]
 
 -- load and run code on the new state
 local x, y = lua([[

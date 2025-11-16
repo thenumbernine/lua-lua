@@ -1,5 +1,6 @@
 require 'ext.gc'	-- allow __gc for luajit
 local ffi = require 'ffi'
+local buffer = require 'string.buffer'
 local lib = require 'lua.ffi'
 local assert = require 'ext.assert'
 local class = require 'ext.class'
@@ -62,7 +63,15 @@ function Lua:pushargs(n, x, ...)
 		self:assert(lib.luaL_loadbuffer(L, str, #str, 'Lua:pushargs'))
 	--elseif t == 'thread' then
 	--	TODO string.buffer serialization?
-	--elseif t == 'table' then
+	elseif t == 'table' then
+		lib.lua_getglobal(L, 'require')			-- require
+		lib.lua_pushstring(L, 'string.buffer')	-- require, 'string.buffer'
+		lib.lua_pcall(L, 1, 1, 0)				-- buffer
+		lib.lua_getfield(L, -1, 'decode')		-- buffer, buffer.decode
+		local s = buffer.encode(x)
+		lib.lua_pushlstring(L, ffi.cast('char*', s), #s)-- buffer, buffer.decode, s
+		lib.lua_pcall(L, 1, 1, 0)				-- buffer, result
+		lib.lua_remove(L, -2)					-- result
 	else
 		print('WARNING: idk how to push '..t)
 		lib.lua_pushnil(L)
@@ -94,7 +103,18 @@ function Lua:getstack(i)
 		return lib.lua_tonumber(L, i)
 	elseif luatype == lib.LUA_TSTRING then
 		return self:getstring(i)
-	--elseif luatype == lib.LUA_TTABLE then
+	elseif luatype == lib.LUA_TTABLE then
+
+		lib.lua_getglobal(L, 'require')			-- require
+		lib.lua_pushstring(L, 'string.buffer')	-- require, 'string.buffer'
+		lib.lua_pcall(L, 1, 1, 0)				-- buffer
+		lib.lua_getfield(L, -1, 'encode')		-- buffer, buffer.encode
+		lib.lua_pushvalue(L, i)					-- buffer, buffer.encode, stack[i]
+		lib.lua_pcall(L, 1, 1, 0)				-- buffer, result
+		local s = self:getstring(-1)
+		lib.lua_pop(L, 2)						--
+		return buffer.decode(s)
+
 	elseif luatype == lib.LUA_TFUNCTION then
 		-- same trick as above? string.dump and reload?
 		lib.lua_rawgeti(L, lib.LUA_REGISTRYINDEX, self.errHandlerRef)
