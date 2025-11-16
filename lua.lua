@@ -80,12 +80,61 @@ function Lua:pushargs(n, x, ...)
 	return self:pushargs(n-1, ...)
 end
 
+-- get stack location as bool
+function Lua:getboolean(i)
+	return 0 ~= lib.lua_toboolean(self.L, i)
+end
+
+function Lua:getpointer(i)
+	return lib.lua_topointer(self.L, i)
+end
+
+function Lua:getnumber(i)
+	return lib.lua_tonumber(self.L, i)
+end
+
 -- get stack location as string
 function Lua:getstring(i)
-	local L = self.L
 	local len = ffi.new(size_t_1)
-	local ptr = lib.lua_tolstring(L, i, len)
+	local ptr = lib.lua_tolstring(self.L, i, len)
 	return ptr ~= nil and ffi.string(ptr, len[0]) or nil
+end
+
+function Lua:gettable(i)
+	local L = self.L
+	lib.lua_getglobal(L, 'require')			-- require
+	lib.lua_pushstring(L, 'string.buffer')	-- require, 'string.buffer'
+	lib.lua_pcall(L, 1, 1, 0)				-- buffer
+	lib.lua_getfield(L, -1, 'encode')		-- buffer, buffer.encode
+	lib.lua_pushvalue(L, i)					-- buffer, buffer.encode, stack[i]
+	lib.lua_pcall(L, 1, 1, 0)				-- buffer, result
+	local s = self:getstring(-1)
+	lib.lua_pop(L, 2)						--
+	return buffer.decode(s)
+end
+
+function Lua:getfunction(i)
+	local L = self.L
+	-- same trick as above? string.dump and reload?
+	lib.lua_rawgeti(L, lib.LUA_REGISTRYINDEX, self.errHandlerRef)
+	local errHandlerLoc = lib.lua_gettop(L)	-- errHandler
+	lib.lua_getglobal(L, 'string')			-- errHandler, string
+	lib.lua_getfield(L, -1, 'dump')			-- errhandler, string, dump
+	lib.lua_remove(L, -2)					-- errHandler, dump
+	lib.lua_pushvalue(L, i)					-- errHandler, dump, i
+	self:assert(lib.lua_pcall(L, 1, 1, errHandlerLoc))	-- result
+	local data = self:getstring(-1)
+	lib.lua_pop(L, 1)
+	return load(data)
+end
+
+function Lua:getcdata(i)
+	local ptr = lib.lua_topointer(self.L, i)
+	-- I guess all LuaJIT cdata's hold ... pointers ... ? always?
+	-- I suspect this can get me into trouble:
+	local result = ffi.cast(void_pp, ptr)
+	if result == nil then return nil end
+	return result[0]
 end
 
 -- get stack location
@@ -97,48 +146,23 @@ function Lua:getstack(i)
 	then
 		-- it's already nil
 	elseif luatype == lib.LUA_TBOOLEAN then
-		return 0 ~= lib.lua_toboolean(L, i)
+		return self:getboolean(i)
 	elseif luatype == lib.LUA_TLIGHTUSERDATA then
-		return lib.lua_topointer(L, i)	-- is this ok?
+		return self:getpointer(i)	-- is this ok?
 	elseif luatype == lib.LUA_TNUMBER then
-		return lib.lua_tonumber(L, i)
+		return self:getnumber(i)
 	elseif luatype == lib.LUA_TSTRING then
 		return self:getstring(i)
 	elseif luatype == lib.LUA_TTABLE then
-
-		lib.lua_getglobal(L, 'require')			-- require
-		lib.lua_pushstring(L, 'string.buffer')	-- require, 'string.buffer'
-		lib.lua_pcall(L, 1, 1, 0)				-- buffer
-		lib.lua_getfield(L, -1, 'encode')		-- buffer, buffer.encode
-		lib.lua_pushvalue(L, i)					-- buffer, buffer.encode, stack[i]
-		lib.lua_pcall(L, 1, 1, 0)				-- buffer, result
-		local s = self:getstring(-1)
-		lib.lua_pop(L, 2)						--
-		return buffer.decode(s)
-
+		return self:gettable(i)
 	elseif luatype == lib.LUA_TFUNCTION then
-		-- same trick as above? string.dump and reload?
-		lib.lua_rawgeti(L, lib.LUA_REGISTRYINDEX, self.errHandlerRef)
-		local errHandlerLoc = lib.lua_gettop(L)	-- errHandler
-		lib.lua_getglobal(L, 'string')			-- errHandler, string
-		lib.lua_getfield(L, -1, 'dump')			-- errhandler, string, dump
-		lib.lua_remove(L, -2)					-- errHandler, dump
-		lib.lua_pushvalue(L, i)					-- errHandler, dump, i
-		self:assert(lib.lua_pcall(L, 1, 1, errHandlerLoc))	-- result
-		local data = self:getstring(-1)
-		lib.lua_pop(L, 1)
-		return load(data)
+		return self:getfunction(i)
 	--elseif luatype == lib.LUA_TUSERDATA then
 		-- return a string binary-blob of the data?
 	--elseif luatype == lib.LUA_TTHREAD
 	--elseif luatype == lib.TPROTO
 	elseif luatype == lib.LUA_TCDATA then
-		local ptr = lib.lua_topointer(L, i)
-		-- I guess all LuaJIT cdata's hold ... pointers ... ? always?
-		-- I suspect this can get me into trouble:
-		local result = ffi.cast(void_pp, ptr)
-		if result == nil then return nil end
-		return result[0]
+		return self:getcdata(i)
 	else
 		print("WARNING: idk how to pop "..tostring(luatype))
 		return nil

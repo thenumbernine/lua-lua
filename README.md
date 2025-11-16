@@ -6,6 +6,22 @@ Create your own distinct `lua_State`'s in LuaJIT.
 
 Allows passing data between states.
 
+- `lua = Lua()` = create a new Lua state
+- `lua:close()` = close Lua state.  This is automatically called upon `__gc`
+- `lua:run(code, ...)` = runs `code`, passes in `...` as args, returns whats returned.
+- `lua:global(name, [value])` = gets/sets the global with name `name`.
+- `lua:pushargs(n, ...)` = push `n` args from Lua data into the Lua state's stack.
+- `lua:popargs(n, i)` = pops `n` arguments starting at location `i` from the Lua state's stack and returns them.
+- `lua:getstack(i)` = returns the i'th stack location as Lua data.
+- `lua:getboolean(i)` = returns the i'th stack location as a boolean.
+- `lua:getpointer(i)` = returns the i'th stack location as a `lua_topointer`.
+- `lua:getnumber(i)` = returns the i'th stack location as a number.
+- `lua:getstring(i)` = returns the i'th stack location as a string.
+- `lua:gettable(i)` = returns the i'th stack location as a table.
+- `lua:getfunction(i)` = returns the i'th stack location as a function.
+- `lua:getcdata(i)` = returns the i'th stack location as if it were cdata, i.e. using `lua_topointer` then returning the pointer within the pointer.
+- `lua:assert(err, ...)` = asserts that `err` is equal to 0 i.e. `LUA_OK`. If not then raises an error with the top value on stack as the error string.
+
 Use the `__call` operator to execute code on the new state.
 
 Example:
