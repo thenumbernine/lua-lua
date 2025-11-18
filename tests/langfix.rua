@@ -3,20 +3,12 @@
 local Lua = require 'lua'
 local lua = Lua()
 
+-- TODO should I be exposing this as a global?
+--local luaToFixed = require 'langfix.env'().luaToFixed
+local luaToFixed = langfix.luaToFixed
 
 lua.load = |:, data, source| do
-
-	-- here we have to redirect the luaL_loadbuffer to first convert langfix-lua to normal lua
-	-- (copied from langfix/env.lua's langfix.loadstate.xforms:
-	-- NOTICE THIS IS ALREADY LOADED INTO THE PARENT STATE
-	-- it'd be nice if I could just access the function...
-	-- like `return require 'langfix.env'().luaToFixed(data)`
-	local LuaFixedParser = require 'langfix.parser'
-	local parser = LuaFixedParser()
-	assert(parser:setData(data, source))
-	local result = parser.tree:toLua{maintainSpan=true}
-
-	return Lua.load(self, result, source)
+	return Lua.load(self, luaToFixed(data), source)
 end
 
 -- make sure langfix works in parent ...
@@ -32,3 +24,4 @@ return g
 	return g()
 end
 assert.eq(f(), "hello from langfix lua child State")
+print'done'
