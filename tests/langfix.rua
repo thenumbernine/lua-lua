@@ -3,66 +3,32 @@
 local Lua = require 'lua'
 local lua = Lua()
 
---[[ TODO TODO TODO
-langfix is breaking string.dump for some reason
-I do modify load and loadstring and loadfile
-but I don't modify string.dump so. ... ????
 
-luajit -lext:
-	> =string.dump(function()end)
-	=stdinK
-
-luajit langfix/run.lua
-	> =string.dump(function()end)
-	$return string . dump(function( )end)K
-
-.... sooo
---]]
 lua.load = |:, data, source| do
-
-print('lua.load IN:')
-print(require 'template.showcode'(data))
 
 	-- here we have to redirect the luaL_loadbuffer to first convert langfix-lua to normal lua
 	-- (copied from langfix/env.lua's langfix.loadstate.xforms:
 	-- NOTICE THIS IS ALREADY LOADED INTO THE PARENT STATE
 	-- it'd be nice if I could just access the function...
+	-- like `return require 'langfix.env'().luaToFixed(data)`
 	local LuaFixedParser = require 'langfix.parser'
 	local parser = LuaFixedParser()
 	assert(parser:setData(data, source))
 	local result = parser.tree:toLua{maintainSpan=true}
-
-print('lua.load OUT:')
-print(require 'template.showcode'(result))
 
 	return Lua.load(self, result, source)
 end
 
 -- make sure langfix works in parent ...
 local f = ||do
-	--[=[
-	local results = table.pack(lua[[
+	local g = lua[[
 -- make sure langfix works in child ...
 local g = ||do
 	return "hello from langfix lua child State"
 end
-
-print('g', g)
 return g
-]])
-	--]=]
-	-- [=[ TODO hmm seems langfix breaks string.dump
-	local results = table.pack(lua[[
-local g = function()
-	return "hello from langfix lua child State"
-end
+]]
 
-print('g', g)
-return g
-]])
-	--]=]
-print('results', results:unpack())
-	os.exit()
-	return results[1]()
+	return g()
 end
 assert.eq(f(), "hello from langfix lua child State")
