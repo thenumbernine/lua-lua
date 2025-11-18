@@ -3,12 +3,9 @@
 local Lua = require 'lua'
 local lua = Lua()
 
--- TODO should I be exposing this as a global?
---local luaToFixed = require 'langfix.env'().luaToFixed
-local luaToFixed = langfix.luaToFixed
-
 lua.load = |:, data, source| do
-	return Lua.load(self, luaToFixed(data), source)
+	-- should I be exposing `langfix` as a global?
+	return Lua.load(self, langfix.luaToFixed(data), source)
 end
 
 -- make sure langfix works in parent ...
