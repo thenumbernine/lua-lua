@@ -21,6 +21,16 @@ function Lua:init()
 	-- while we're here, create a default Lua error handler, and save it somewhere
 	self:load[[return tostring((...)) .. '\n' .. debug.traceback()]]
 	self.errHandlerRef = lib.luaL_ref(L, lib.LUA_REGISTRYINDEX)
+
+	-- index access if you don't mind the overhead
+	self.global = setmetatable({}, {
+		__index = function(t, name)
+			return self:globalrw(name)
+		end,
+		__newindex = function(t, name, value)
+			return self:globalrw(name, value)
+		end,
+	})
 end
 
 function Lua:load(str, name)
@@ -183,7 +193,7 @@ function Lua:popargs(n, i)
 end
 
 -- read/write a global
-function Lua:global(name, ...)
+function Lua:globalrw(name, ...)
 	local L = self.L
 	if select('#', ...) > 0 then
 		-- write a global

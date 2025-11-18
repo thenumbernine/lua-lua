@@ -78,5 +78,16 @@ return result
 	assert.eq(result, nil)
 end
 
+-- global access
+do
+	lua[[t = {k=42}]]
+	assert.eq(lua.global.t.k, 42)
+	-- notice that values are copied across lua states, so setting t.k won't reflect on the other side
+	-- I could get around this by making proxy objects everywhere like I do in my [lua-interop](https://github.com/thenumbernine/lua-ffi-wasm/blob/master/lua-interop/lua-interop.js) Lua/JS implementation.
+	-- but that brings a performance overhead with it
+	lua.global.t = {v=43}
+	lua[[assert(t.v == 43)]]
+end
+
 lua:close()
 print'done'

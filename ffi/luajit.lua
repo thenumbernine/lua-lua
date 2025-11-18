@@ -37,6 +37,7 @@ void lua_close(lua_State* L);
 int lua_pcall(lua_State* L, int nargs, int nresults, int errfunc);
 
 void lua_getfield(lua_State* L, int index, const char* k);
+void lua_setfield(lua_State *L, int idx, const char *k);
 
 void lua_rawget(lua_State *L, int idx);
 void lua_rawgeti(lua_State *L, int idx, int n);
