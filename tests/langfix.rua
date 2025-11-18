@@ -1,12 +1,6 @@
 #!/usr/bin/env rua
 -- see how well I can run langfix in the parent and the child
-local Lua = require 'lua'
-local lua = Lua()
-
-lua.load = |:, data, source| do
-	-- should I be exposing `langfix` as a global?
-	return Lua.load(self, langfix.luaToFixed(data), source)
-end
+local lua = require 'lua.langfix'()
 
 -- make sure langfix works in parent ...
 local f = ||do

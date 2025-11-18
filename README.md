@@ -6,6 +6,7 @@ Create your own distinct `lua_State`'s in LuaJIT.
 
 Allows passing data between states.
 
+- `Lua = require 'lua'`
 - `lua = Lua()` = create a new Lua state
 - `lua:close()` = close Lua state.  This is automatically called upon `__gc`
 - `lua:run(code, ...)` = runs `code`, passes in `...` as args, returns whats returned.
@@ -38,4 +39,11 @@ return f(4)
 assert(y == 5)
 ```
 
-Uses my [lua-ffi-bindings](https://github.com/thenumbernine/lua-ffi-bindings) for LuaJIT header porting and library search.
+# LangFix
+
+I also provide support for my [langfix](http://github.com/thenumbernine/langfix-lua) library:
+
+- `LuaFixed = require 'lua.langfix'`
+- `lua = LuaFixed()`
+
+... and now you can run langfix operators in your Lua state.
