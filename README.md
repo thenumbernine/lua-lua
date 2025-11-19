@@ -2,6 +2,9 @@
 
 I know the repo name is `lua-lua`, but it's directly tied to the LuaJIT ffi library so it is in fact LuaJIT-for-LuaJIT.
 
+I spun this off of [CapsAdmin luajit-pureffi/threads.lua](https://github.com/CapsAdmin/luajit-pureffi/blob/main/threads.lua),
+which makes use of LuaJIT-within-LuaJIT calls, and then just kept wrapping classes and adding more OOP bureaucracy.
+
 Create your own distinct `lua_State`'s in LuaJIT.
 
 Allows passing data between states.
@@ -12,7 +15,7 @@ Allows passing data between states.
 - `lua:run(code, ...)` = runs `code`, passes in `...` as args, returns whats returned.
 - `lua:load(code, [name])` = loads the code and pushes it onto the stack using `luaL_loadbuffer`.
 - `lua:globalrw(name, [value])` = gets/sets the global with name `name`.
-- `lua:global[name] = value` = same but if you prefer index access.
+- `lua:global[name] [= value]` = same as `lua:globalrw()` but if you prefer index access.
 - `lua:pushargs(n, ...)` = push `n` args from Lua data into the Lua state's stack.
 - `lua:popargs(n, i)` = pops `n` arguments starting at location `i` from the Lua state's stack and returns them.
 - `lua:getstack(i)` = returns the i'th stack location as Lua data.
@@ -46,4 +49,4 @@ I also provide support for my [langfix](http://github.com/thenumbernine/langfix-
 - `LuaFixed = require 'lua.langfix'`
 - `lua = LuaFixed()`
 
-... and now you can run langfix operators in your Lua state.
+... and now you can use langfix operators in your Lua state's code.
