@@ -41,6 +41,9 @@ assert.eq(self:gettop(), top+3)
 	self.serTableRef = self:makeref()
 	self:settop(top)
 
+	-- used by the parent state:
+	self.serBuffer = buffer.new()
+
 	-- index access if you don't mind the overhead
 	self.global = setmetatable({}, {
 		__index = function(t, name)
@@ -108,10 +111,10 @@ function Lua:pushargs(n, x, ...)
 		local str = string.dump(x)
 		self:load(str, 'Lua:pushargs')
 	--elseif t == 'thread' then
-	--	TODO string.buffer serialization?
+	--	is it possible?
 	elseif t == 'table' then
 
-		local s = buffer.encode(x)
+		local s = self.serBuffer:reset():encode(x):get()
 		self:pushref(self.deserTableRef)
 		lib.lua_pushlstring(L, ffi.cast('char*', s), #s)
 		lib.lua_pcall(L, 1, 1, 0)
@@ -151,7 +154,7 @@ function Lua:gettable(i)
 	lib.lua_pushvalue(L, i)
 	lib.lua_pcall(L, 1, 1, 0)
 	local s = self:getstring(-1)
-	return buffer.decode(s)
+	return self.serBuffer:reset():set(s):decode()
 end
 
 function Lua:getfunction(i)
