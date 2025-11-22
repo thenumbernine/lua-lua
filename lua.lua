@@ -27,12 +27,12 @@ return tostring((...)) .. '\n' .. debug.traceback()
 	-- create table serialization functions
 	local top = self:gettop()
 	self:runAndPush[[
-local buffer = require 'string.buffer'
+local b = require 'string.buffer'.new()
 local function serTable(x)
-	return buffer.encode(x)
+	return b:reset():encode(x):get()
 end
 local function deserTable(s)
-	return buffer.decode(s)
+	return b:reset():set(s):decode()
 end
 return serTable, deserTable
 ]]
