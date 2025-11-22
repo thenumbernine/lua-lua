@@ -24,9 +24,32 @@ return tostring((...)) .. '\n' .. debug.traceback()
 ]]
 	self.errHandlerRef = self:makeref()
 
+--[=[ TODO
+[[
+local b = require 'string.buffer'.new()
+local function serTable(x)
+	local status, result = pcall(function()
+		return b:reset():encode(x):get()
+	end)
+	if status then return result end
+
+	return require 'ext.tolua'(x)
+end
+local function deserTable(s)
+	local status, result = pcall(function()
+		return b:reset():set(s):decode()
+	end)
+	if status then return result end
+
+	return require 'ext.fromlua'(s)
+end
+return serTable, deserTable
+]]
+--]=]
+
 	-- create table serialization functions
-	local top = self:gettop()
-	self:runAndPush[[
+
+	local serCode = [[
 local b = require 'string.buffer'.new()
 local function serTable(x)
 	return b:reset():encode(x):get()
@@ -36,13 +59,16 @@ local function deserTable(s)
 end
 return serTable, deserTable
 ]]
-assert.eq(self:gettop(), top+3)
+
+	-- put a copy of the functions on the parent state
+	self.serTable, self.deserTable = assert(load(serCode))()
+
+	-- put a copy of the functions on the child state
+	local top = self:gettop()
+	self:runAndPush(serCode)
 	self.deserTableRef = self:makeref()
 	self.serTableRef = self:makeref()
 	self:settop(top)
-
-	-- used by the parent state:
-	self.serBuffer = buffer.new()
 
 	-- index access if you don't mind the overhead
 	self.global = setmetatable({}, {
@@ -114,7 +140,7 @@ function Lua:pushargs(n, x, ...)
 	--	is it possible?
 	elseif t == 'table' then
 
-		local s = self.serBuffer:reset():encode(x):get()
+		local s = self.serTable(x)
 		self:pushref(self.deserTableRef)
 		lib.lua_pushlstring(L, ffi.cast('char*', s), #s)
 		lib.lua_pcall(L, 1, 1, 0)
@@ -154,7 +180,7 @@ function Lua:gettable(i)
 	lib.lua_pushvalue(L, i)
 	lib.lua_pcall(L, 1, 1, 0)
 	local s = self:getstring(-1)
-	return self.serBuffer:reset():set(s):decode()
+	return self.deserTable(s)
 end
 
 function Lua:getfunction(i)
@@ -242,7 +268,7 @@ end
 
 -- runs `code`
 -- accepts Lua args
--- but leaves results on the stack 
+-- but leaves results on the stack
 -- also leaves the error handler on the stack under them
 function Lua:runAndPush(code, ...)
 	local L = self.L
