@@ -25,21 +25,21 @@ return tostring((...)) .. '\n' .. debug.traceback()
 	self.errHandlerRef = self:makeref()
 
 	-- create table serialization functions
-	-- TODO xpcall this
-	-- and if it fails, try `require 'ext.tolua'(x)`
-	self:load[[
-local s = ...
-return require 'string.buffer'.decode(s)
+	local top = self:gettop()
+	self:runAndPush[[
+local buffer = require 'string.buffer'
+local function serTable(x)
+	return buffer.encode(x)
+end
+local function deserTable(s)
+	return buffer.decode(s)
+end
+return serTable, deserTable
 ]]
+assert.eq(self:gettop(), top+3)
 	self.deserTableRef = self:makeref()
-
-	-- TODO xpcall this
-	-- and if it fails, try `require 'ext.fromlua'(x)`
-	self:load[[
-local x = ...
-return require 'string.buffer'.encode(x)
-]]
 	self.serTableRef = self:makeref()
+	self:settop(top)
 
 	-- index access if you don't mind the overhead
 	self.global = setmetatable({}, {
@@ -50,6 +50,10 @@ return require 'string.buffer'.encode(x)
 			return self:globalrw(name, value)
 		end,
 	})
+end
+
+function Lua:gettop()
+	return lib.lua_gettop(self.L)
 end
 
 function Lua:makeref()
@@ -154,7 +158,7 @@ function Lua:getfunction(i)
 	local L = self.L
 	-- same trick as above? string.dump and reload?
 	self:pushref(self.errHandlerRef)
-	local errHandlerLoc = lib.lua_gettop(L)	-- errHandler
+	local errHandlerLoc = self:gettop()		-- errHandler
 	lib.lua_getglobal(L, 'string')			-- errHandler, string
 	lib.lua_getfield(L, -1, 'dump')			-- errhandler, string, dump
 	lib.lua_remove(L, -2)					-- errHandler, dump
@@ -224,7 +228,7 @@ function Lua:globalrw(name, ...)
 	else
 		-- read a global
 		lib.lua_getglobal(L, name)
-		return self:popargs(1, lib.lua_gettop(L))
+		return self:popargs(1, self:gettop())
 	end
 end
 
@@ -233,18 +237,16 @@ function Lua:settop(top, ...)
 	return ...
 end
 
--- this is very specific to pureffi/threads.lua's "threads.new" function
--- loads 'code' in the enclosed Lua state
--- serializes and passes any args into 'code's function
--- calls the function
--- returns the results, cast as a uintptr_t*
-function Lua:run(code, ...)
+-- runs `code`
+-- accepts Lua args
+-- but leaves results on the stack 
+-- also leaves the error handler on the stack under them
+function Lua:runAndPush(code, ...)
 	local L = self.L
-	local top = lib.lua_gettop(L)
 
 	-- push error handler first
 	self:pushref(self.errHandlerRef)
-	local errHandlerLoc = lib.lua_gettop(L)
+	local errHandlerLoc = self:gettop()
 
 	-- push functin next
 	self:load(code)
@@ -255,7 +257,17 @@ function Lua:run(code, ...)
 	self:pushargs(n, ...)
 
 	self:assert(lib.lua_pcall(L, n, lib.LUA_MULTRET, errHandlerLoc))
-	local newtop = lib.lua_gettop(L)
+end
+
+-- this is very specific to pureffi/threads.lua's "threads.new" function
+-- loads 'code' in the enclosed Lua state
+-- serializes and passes any args into 'code's function
+-- calls the function
+-- returns the results, cast as a uintptr_t*
+function Lua:run(code, ...)
+	local top = self:gettop()
+	self:runAndPush(code, ...)
+	local newtop = self:gettop()
 
 	-- convert args on stack, reset top, and return converted args
 	return self:settop(top, self:popargs(newtop - (top+1), top+2))
