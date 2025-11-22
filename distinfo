@@ -8,10 +8,12 @@ files = {
 	["ffi.lua"] = "lua/ffi.lua",
 	["ffi/lua54.lua"] = "lua/ffi/lua54.lua",
 	["ffi/luajit.lua"] = "lua/ffi/luajit.lua",
+	["langfix.lua"] = "lua/langfix.lua",
 	["lua.lua"] = "lua/lua.lua",
 	["tests/test.lua"] = "lua/tests/test.lua",
 }
 deps = {
 	"ext",
 	"ffi",
+	--"langfix",	-- optional
 }

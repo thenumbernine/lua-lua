@@ -18,9 +18,28 @@ function Lua:init()
 	self.L = L
 	lib.luaL_openlibs(L)
 
-	-- while we're here, create a default Lua error handler, and save it somewhere
-	self:load[[return tostring((...)) .. '\n' .. debug.traceback()]]
-	self.errHandlerRef = lib.luaL_ref(L, lib.LUA_REGISTRYINDEX)
+	-- create a default Lua error handler
+	self:load[[
+return tostring((...)) .. '\n' .. debug.traceback()
+]]
+	self.errHandlerRef = self:makeref()
+
+	-- create table serialization functions
+	-- TODO xpcall this
+	-- and if it fails, try `require 'ext.tolua'(x)`
+	self:load[[
+local s = ...
+return require 'string.buffer'.decode(s)
+]]
+	self.deserTableRef = self:makeref()
+
+	-- TODO xpcall this
+	-- and if it fails, try `require 'ext.fromlua'(x)`
+	self:load[[
+local x = ...
+return require 'string.buffer'.encode(x)
+]]
+	self.serTableRef = self:makeref()
 
 	-- index access if you don't mind the overhead
 	self.global = setmetatable({}, {
@@ -31,6 +50,14 @@ function Lua:init()
 			return self:globalrw(name, value)
 		end,
 	})
+end
+
+function Lua:makeref()
+	return lib.luaL_ref(self.L, lib.LUA_REGISTRYINDEX)
+end
+
+function Lua:pushref(ref)
+	lib.lua_rawgeti(self.L, lib.LUA_REGISTRYINDEX, ref)
 end
 
 function Lua:load(str, name)
@@ -79,14 +106,12 @@ function Lua:pushargs(n, x, ...)
 	--elseif t == 'thread' then
 	--	TODO string.buffer serialization?
 	elseif t == 'table' then
-		lib.lua_getglobal(L, 'require')			-- require
-		lib.lua_pushstring(L, 'string.buffer')	-- require, 'string.buffer'
-		lib.lua_pcall(L, 1, 1, 0)				-- buffer
-		lib.lua_getfield(L, -1, 'decode')		-- buffer, buffer.decode
+
 		local s = buffer.encode(x)
-		lib.lua_pushlstring(L, ffi.cast('char*', s), #s)-- buffer, buffer.decode, s
-		lib.lua_pcall(L, 1, 1, 0)				-- buffer, result
-		lib.lua_remove(L, -2)					-- result
+		self:pushref(self.deserTableRef)
+		lib.lua_pushlstring(L, ffi.cast('char*', s), #s)
+		lib.lua_pcall(L, 1, 1, 0)
+
 	else
 		print('WARNING: idk how to push '..t)
 		lib.lua_pushnil(L)
@@ -117,21 +142,18 @@ end
 
 function Lua:gettable(i)
 	local L = self.L
-	lib.lua_getglobal(L, 'require')			-- require
-	lib.lua_pushstring(L, 'string.buffer')	-- require, 'string.buffer'
-	lib.lua_pcall(L, 1, 1, 0)				-- buffer
-	lib.lua_getfield(L, -1, 'encode')		-- buffer, buffer.encode
-	lib.lua_pushvalue(L, i)					-- buffer, buffer.encode, stack[i]
-	lib.lua_pcall(L, 1, 1, 0)				-- buffer, result
+
+	self:pushref(self.serTableRef)
+	lib.lua_pushvalue(L, i)
+	lib.lua_pcall(L, 1, 1, 0)
 	local s = self:getstring(-1)
-	lib.lua_pop(L, 2)						--
 	return buffer.decode(s)
 end
 
 function Lua:getfunction(i)
 	local L = self.L
 	-- same trick as above? string.dump and reload?
-	lib.lua_rawgeti(L, lib.LUA_REGISTRYINDEX, self.errHandlerRef)
+	self:pushref(self.errHandlerRef)
 	local errHandlerLoc = lib.lua_gettop(L)	-- errHandler
 	lib.lua_getglobal(L, 'string')			-- errHandler, string
 	lib.lua_getfield(L, -1, 'dump')			-- errhandler, string, dump
@@ -221,7 +243,7 @@ function Lua:run(code, ...)
 	local top = lib.lua_gettop(L)
 
 	-- push error handler first
-	lib.lua_rawgeti(L, lib.LUA_REGISTRYINDEX, self.errHandlerRef)
+	self:pushref(self.errHandlerRef)
 	local errHandlerLoc = lib.lua_gettop(L)
 
 	-- push functin next
