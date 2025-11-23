@@ -29,34 +29,29 @@ return tostring((...)) .. '\n' .. debug.traceback()
 	local serCode = [[
 local b = require 'string.buffer'.new()
 local function serTable(x)
---[=[	
 	local status, result = pcall(function()
 		return b:reset():encode(x):get()
 	end)
-	if status then return result end
---]=]
+	if status then return '1'..result end
 
 	local status2, result2 = pcall(function()
 		return require 'ext.tolua'(x)
 	end)
-	if status2 then return result2 end
+	if status2 then return '2'..result2 end
 
 	error(tostring(result)..'\n'..tostring(result2))
 end
 local function deserTable(s)
---[=[
-	local status, result = pcall(function()
+	local method = s:sub(1,1)
+	s = s:sub(2)
+
+	if method == '1' then
 		return b:reset():set(s):decode()
-	end)
-	if status then return result end
---]=]
-
-	local status2, result2 = pcall(function()
+	elseif method == '2' then
 		return require 'ext.fromlua'(s)
-	end)
-	if status2 then return result2 end
-
-	error(tostring(result)..'\n'..tostring(result2))
+	else
+		error("unknown serialization method: "..method)
+	end
 end
 return serTable, deserTable
 ]]
