@@ -40,15 +40,21 @@ lua([[local t = ... assert(t.a == 42)]], {a=42})
 -- return tables
 assert.eq(43, lua[[return {z=43}]].z)
 
---[=[
 -- can we accept self-referencing tables?
--- no, not until I insert ext.tolua/fromlua as a fallback to string.buffer
+-- yes, now that I added an ext.tolua/fromlua pathway to serialization
 do
 	local t = {}
 	t.t = t
 	lua([[local t = ... assert(t.t == t)]], t)
 end
---]=]
+do
+	local t = lua[[
+local t = {}
+t.t = t
+return t
+]]
+	assert.eq(t, t.t)
+end
 
 -- load and run code on the new state
 local x, y = lua([[

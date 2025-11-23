@@ -24,38 +24,39 @@ return tostring((...)) .. '\n' .. debug.traceback()
 ]]
 	self.errHandlerRef = self:makeref()
 
---[=[ TODO
-[[
-local b = require 'string.buffer'.new()
-local function serTable(x)
-	local status, result = pcall(function()
-		return b:reset():encode(x):get()
-	end)
-	if status then return result end
-
-	return require 'ext.tolua'(x)
-end
-local function deserTable(s)
-	local status, result = pcall(function()
-		return b:reset():set(s):decode()
-	end)
-	if status then return result end
-
-	return require 'ext.fromlua'(s)
-end
-return serTable, deserTable
-]]
---]=]
-
 	-- create table serialization functions
 
 	local serCode = [[
 local b = require 'string.buffer'.new()
 local function serTable(x)
-	return b:reset():encode(x):get()
+--[=[	
+	local status, result = pcall(function()
+		return b:reset():encode(x):get()
+	end)
+	if status then return result end
+--]=]
+
+	local status2, result2 = pcall(function()
+		return require 'ext.tolua'(x)
+	end)
+	if status2 then return result2 end
+
+	error(tostring(result)..'\n'..tostring(result2))
 end
 local function deserTable(s)
-	return b:reset():set(s):decode()
+--[=[
+	local status, result = pcall(function()
+		return b:reset():set(s):decode()
+	end)
+	if status then return result end
+--]=]
+
+	local status2, result2 = pcall(function()
+		return require 'ext.fromlua'(s)
+	end)
+	if status2 then return result2 end
+
+	error(tostring(result)..'\n'..tostring(result2))
 end
 return serTable, deserTable
 ]]
