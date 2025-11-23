@@ -1,6 +1,5 @@
 require 'ext.gc'	-- allow __gc for luajit
 local ffi = require 'ffi'
-local buffer = require 'string.buffer'
 local lib = require 'lua.ffi'
 local assert = require 'ext.assert'
 local class = require 'ext.class'
