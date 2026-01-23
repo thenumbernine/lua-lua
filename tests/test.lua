@@ -95,5 +95,15 @@ do
 	lua[[assert(t.v == 43)]]
 end
 
+do
+	lua.global.t = {'a', 'b', 'c'}
+	lua[[
+assert(#t == 3)
+assert(t[1] == 'a')
+assert(t[2] == 'b')
+assert(t[3] == 'c')
+]]
+end
+
 lua:close()
 print'done'
