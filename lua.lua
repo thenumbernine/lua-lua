@@ -4,6 +4,9 @@ local lib = require 'lua.ffi'
 local assert = require 'ext.assert'
 local class = require 'ext.class'
 
+local xpcallenv = {}
+require 'ext.xpcall'(xpcallenv)	-- make sure we have ... forwarding in xpcall
+local xpcall = xpcallenv.xpcall
 
 local void_pp = ffi.typeof'void**'
 local size_t_1 = ffi.typeof'size_t[1]'
@@ -130,7 +133,7 @@ function Lua:pushargs(n, x, ...)
 		lib.lua_pushboolean(L, x and 1 or 0)
 	elseif t == 'function' then
 		local str = string.dump(x)
-		self:load(str, 'Lua:pushargs')
+		self:load(str, 'Lua:pushargs function')
 	--elseif t == 'thread' then
 	--	is it possible?
 	elseif t == 'table' then
@@ -140,6 +143,15 @@ function Lua:pushargs(n, x, ...)
 		lib.lua_pushlstring(L, ffi.cast('char*', s), #s)
 		lib.lua_pcall(L, 1, 1, 0)
 
+	elseif t == 'cdata' then
+		-- can I do lua_topointer on whatever state is giving us 'x' ?
+		-- if I can get a hold of its state ...
+		-- otherwise ...
+		-- cheap trick, cast to intptr, then to ULL, then serialize
+		local ptr = ffi.cast('void*', x)
+		local intptr = ffi.cast('intptr_t', ptr)
+		local strptr = tostring(intptr)
+		self('return '..strptr, 'Lua:pushargs cdata')
 	else
 		print('WARNING: idk how to push '..t)
 		lib.lua_pushnil(L)
@@ -251,8 +263,9 @@ function Lua:globalrw(name, ...)
 		lib.lua_setglobal(L, name)
 	else
 		-- read a global
+		local top = self:gettop()
 		lib.lua_getglobal(L, name)
-		return self:popargs(1, self:gettop())
+		return self:settop(top, self:popargs(1, self:gettop()))
 	end
 end
 
@@ -290,7 +303,13 @@ end
 -- returns the results, cast as a uintptr_t*
 function Lua:run(code, ...)
 	local top = self:gettop()
-	self:runAndPush(code, ...)
+	local result, err = xpcall(function(...)
+		self:runAndPush(code, ...)
+	end, nil, ...)
+	if not result then
+		self:settop(top)
+		error(err)
+	end
 	local newtop = self:gettop()
 
 	-- convert args on stack, reset top, and return converted args
