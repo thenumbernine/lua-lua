@@ -223,6 +223,10 @@ function Lua:getfunction(i)
 end
 
 function Lua:getcdata(i)
+-- this gets me via thread lib:
+-- "bad argument #3 to 'pthread_create' (cannot convert 'void *(*)()' to 'void *(*)()')"
+-- maybe due to luajit creation of closures?
+--[=[
 	local L = self.L
 	-- get the ctype ... lazy way being via lua load
 	self:pushref(self.errHandlerRef)
@@ -237,7 +241,10 @@ return tostring(require 'ffi'.typeof((...))):match'^ctype<(.*)>$'
 
 	local ctypestr = self:getstring(-1)
 	lib.lua_pop(L, 2)
-
+--]=]
+-- [=[
+	local ctypestr
+--]=]
 
 	local ptr = lib.lua_topointer(self.L, i)
 	-- I guess all LuaJIT cdata's hold ... pointers ... ? always?
