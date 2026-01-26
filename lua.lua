@@ -151,7 +151,7 @@ function Lua:pushargs(n, x, ...)
 		local ptr = ffi.cast('void*', x)
 		local intptr = ffi.cast('intptr_t', ptr)
 		local strptr = tostring(intptr)
-		self:runAndPush('return '..strptr)
+		self:runAndPush("return require 'ffi'.cast('void*', "..strptr..")")
 		-- assert the 2nd from the top is the error handler
 		lib.lua_remove(L, -2)
 	else
