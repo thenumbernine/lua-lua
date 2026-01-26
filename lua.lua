@@ -151,7 +151,9 @@ function Lua:pushargs(n, x, ...)
 		local ptr = ffi.cast('void*', x)
 		local intptr = ffi.cast('intptr_t', ptr)
 		local strptr = tostring(intptr)
-		self('return '..strptr, 'Lua:pushargs cdata')
+		self:runAndPush('return '..strptr)
+		-- assert the 2nd from the top is the error handler
+		lib.lua_remove(L, -2)
 	else
 		print('WARNING: idk how to push '..t)
 		lib.lua_pushnil(L)
@@ -285,7 +287,7 @@ function Lua:runAndPush(code, ...)
 	self:pushref(self.errHandlerRef)
 	local errHandlerLoc = self:gettop()
 
-	-- push functin next
+	-- push function next
 	self:load(code)
 
 	-- push args next
