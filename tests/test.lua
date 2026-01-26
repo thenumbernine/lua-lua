@@ -21,7 +21,7 @@ lua([[assert.eq(..., 'foo')]], 'foo')
 assert.eq(lua:gettop(), 0)
 -- pass args in
 lua([[
-local a,b = ... 
+local a,b = ...
 assert.eq(a, 'foo')
 assert.eq(b, 'bar')
 ]], 'foo', 'bar')
@@ -107,16 +107,33 @@ assert.eq(lua:gettop(), 0)
 
 do
 	local ffi = require 'ffi'
-	-- passing in cdata
+	-- passing in void* cdata
 	lua([[
 local result = ...
 assert.eq(result, require 'ffi'.cast('void*', 42))
 ]], ffi.cast('void*', 42))
 	assert.eq(lua:gettop(), 0)
 
-	-- returning cdata
+	-- returning void* cdata
 	local result = lua([[return require 'ffi'.cast('void*', 42)]])
 	assert.eq(result, ffi.cast('void*', 42))
+	assert.eq(lua:gettop(), 0)
+
+	-- passing in int* cdata
+	lua([[
+local ffi = require 'ffi'
+local result = ...
+assert.eq(result, ffi.cast('int*', 42))
+assert.eq(ffi.typeof(result), ffi.typeof('int*'))
+assert.ne(ffi.typeof(result), ffi.typeof('void*'))
+]], ffi.cast('int*', 42))
+	assert.eq(lua:gettop(), 0)
+
+	-- returning int* cdata
+	local result = lua([[return require 'ffi'.cast('int*', 42)]])
+	assert.eq(result, ffi.cast('int*', 42))
+	assert.eq(ffi.typeof(result), ffi.typeof('int*'))
+	assert.ne(ffi.typeof(result), ffi.typeof('void*'))
 	assert.eq(lua:gettop(), 0)
 end
 

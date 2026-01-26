@@ -150,10 +150,23 @@ function Lua:pushargs(n, x, ...)
 		-- if I can get a hold of its state ...
 		-- otherwise ...
 		-- cheap trick, cast to intptr, then to ULL, then serialize
+		local typename = tostring(ffi.typeof(x)):match'^ctype<(.*)>$'
 		local ptr = ffi.cast(void_p, x)
 		local intptr = ffi.cast(intptr_t, ptr)
-		local strptr = tostring(intptr)
-		self:runAndPush("return require 'ffi'.cast('void*', "..strptr..")")
+		local strintptr = tostring(intptr)
+		self:runAndPush([[
+local ffi = require 'ffi'
+
+local result = ffi.cast('void*', ]]..strintptr..[[)
+
+]]..(typename and
+	[[
+result = ffi.cast(']]..typename..[[', result)
+]] or '')
+..[[
+
+return result
+]])
 		-- assert the 2nd from the top is the error handler
 		lib.lua_remove(L, -2)
 	else
@@ -210,12 +223,32 @@ function Lua:getfunction(i)
 end
 
 function Lua:getcdata(i)
+	local L = self.L
+	-- get the ctype ... lazy way being via lua load
+	self:pushref(self.errHandlerRef)
+	local errHandlerLoc = self:gettop()
+
+	self:load[[
+return tostring(require 'ffi'.typeof((...))):match'^ctype<(.*)>$'
+]]
+	lib.lua_pushvalue(L, i)
+	self:assert(lib.lua_pcall(L, 1, 1, errHandlerLoc))
+	-- result is now errHandler, ctype-as-str
+
+	local ctypestr = self:getstring(-1)
+	lib.lua_pop(L, 2)
+
+
 	local ptr = lib.lua_topointer(self.L, i)
 	-- I guess all LuaJIT cdata's hold ... pointers ... ? always?
 	-- I suspect this can get me into trouble:
 	local result = ffi.cast(void_pp, ptr)
 	if result == nil then return nil end
-	return result[0]
+	result = result[0]
+	if ctypestr then
+		result = ffi.cast(ctypestr, result)
+	end
+	return result
 end
 
 -- get stack location
