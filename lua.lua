@@ -8,9 +8,11 @@ local xpcallenv = {}
 require 'ext.xpcall'(xpcallenv)	-- make sure we have ... forwarding in xpcall
 local xpcall = xpcallenv.xpcall
 
+local char_p = ffi.typeof'char*'
+local void_p = ffi.typeof'void*'
 local void_pp = ffi.typeof'void**'
 local size_t_1 = ffi.typeof'size_t[1]'
-
+local intptr_t = ffi.typeof'intptr_t'
 
 local Lua = class()
 
@@ -140,7 +142,7 @@ function Lua:pushargs(n, x, ...)
 
 		local s = self.serTable(x)
 		self:pushref(self.deserTableRef)
-		lib.lua_pushlstring(L, ffi.cast('char*', s), #s)
+		lib.lua_pushlstring(L, ffi.cast(char_p, s), #s)
 		lib.lua_pcall(L, 1, 1, 0)
 
 	elseif t == 'cdata' then
@@ -148,8 +150,8 @@ function Lua:pushargs(n, x, ...)
 		-- if I can get a hold of its state ...
 		-- otherwise ...
 		-- cheap trick, cast to intptr, then to ULL, then serialize
-		local ptr = ffi.cast('void*', x)
-		local intptr = ffi.cast('intptr_t', ptr)
+		local ptr = ffi.cast(void_p, x)
+		local intptr = ffi.cast(intptr_t, ptr)
 		local strptr = tostring(intptr)
 		self:runAndPush("return require 'ffi'.cast('void*', "..strptr..")")
 		-- assert the 2nd from the top is the error handler
@@ -177,7 +179,7 @@ end
 
 -- get stack location as string
 function Lua:getstring(i)
-	local len = ffi.new(size_t_1)
+	local len = size_t_1()
 	local ptr = lib.lua_tolstring(self.L, i, len)
 	return ptr ~= nil and ffi.string(ptr, len[0]) or nil
 end
