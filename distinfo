@@ -4,13 +4,16 @@
 
 name = "lua"
 files = {
-	["README.md"] = "lua/README.md",
-	["ffi.lua"] = "lua/ffi.lua",
-	["ffi/lua54.lua"] = "lua/ffi/lua54.lua",
-	["ffi/luajit.lua"] = "lua/ffi/luajit.lua",
-	["langfix.lua"] = "lua/langfix.lua",
-	["lua.lua"] = "lua/lua.lua",
-	["tests/test.lua"] = "lua/tests/test.lua",
+	"README.md",
+	"distinfo",
+	"ffi.lua",
+	"ffi/lua53-Windows.lua",
+	"ffi/lua54.lua",
+	"ffi/luajit.lua",
+	"langfix.rua",
+	"lua.lua",
+	"tests/langfix.rua",
+	"tests/test.lua",
 }
 deps = {
 	"ext",
