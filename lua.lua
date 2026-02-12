@@ -154,28 +154,20 @@ function Lua:pushargs(n, x, ...)
 		local ptr = ffi.cast(void_p, x)
 		local intptr = ffi.cast(intptr_t, ptr)
 		local strintptr
-		if ffi.os == 'Android' and ffi.arch == 'arm' then
-			-- intptr_t is uint32_t and tostring produces 'cdata <int> ...'
-			assert.eq(ffi.sizeof(intptr_t), 4)
-			--[[ does this work? no.
-			strintptr = ('0x%08x'):format(
-				tonumber(intptr)
-			)
-			--]]
-			-- [[ how big is a luanumber, and how much int bits can it hold? since string.format accepts luanumber
-			-- luanumber seems it cannot hold 32 bits of integer, so it's probably not double...
-			-- should I be using snprintf instead?
-			-- this works:
+		-- tostring(int32_t) produces the string "cdata<int> ...", while tostring(int64_t) produces a serializable number with LL suffix
+		if ffi.sizeof(intptr_t) == 4 then
+			-- also, casting the int32_t to luanumber and then passing to ('0x%08x'):format(...) seems to sometimes lose some bits of precision (is that right?)
+			-- the safest way to convert to string would be to do so one byte at a time ...
 			strintptr = ('0x%04x%04x'):format(
 				tonumber(bit.band(0xffff, bit.rshift(intptr, 16))),
 				tonumber(bit.band(0xffff, intptr))
 			)
-			--]]
-			--]]
 		else
-			-- is uint64 and should serialize to number..ULL
+			-- is a uint64_t and should serialize to number..ULL
 			strintptr = tostring(intptr)
 		end
+		-- what are the promises that the intepreted code will maintain all bits of precision?
+		-- should I be encoding it and decoding it both one byte at a time?
 		self:runAndPush([[
 local ffi = require 'ffi'
 
