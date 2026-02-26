@@ -12,7 +12,7 @@ local char_p = ffi.typeof'char*'
 local void_p = ffi.typeof'void*'
 local void_pp = ffi.typeof'void**'
 local size_t_1 = ffi.typeof'size_t[1]'
-local intptr_t = ffi.typeof'intptr_t'
+local uintptr_t = ffi.typeof'uintptr_t'
 
 local Lua = class()
 
@@ -152,19 +152,14 @@ function Lua:pushargs(n, x, ...)
 		-- cheap trick, cast to intptr, then to ULL, then serialize
 		local typename = tostring(ffi.typeof(x)):match'^ctype<(.*)>$'
 		local ptr = ffi.cast(void_p, x)
-		local intptr = ffi.cast(intptr_t, ptr)
+		local uintptr = ffi.cast(uintptr_t, ptr)
 		local strintptr
 		-- tostring(int32_t) produces the string "cdata<int> ...", while tostring(int64_t) produces a serializable number with LL suffix
-		if ffi.sizeof(intptr_t) == 4 then
-			-- also, casting the int32_t to luanumber and then passing to ('0x%08x'):format(...) seems to sometimes lose some bits of precision (is that right?)
-			-- the safest way to convert to string would be to do so one byte at a time ...
-			strintptr = ('0x%04x%04x'):format(
-				tonumber(bit.band(0xffff, bit.rshift(intptr, 16))),
-				tonumber(bit.band(0xffff, intptr))
-			)
+		if ffi.sizeof(uintptr_t) == 4 then
+			strintptr = '0x'..bit.tohex(uintptr, 8)
 		else
 			-- is a uint64_t and should serialize to number..ULL
-			strintptr = tostring(intptr)
+			strintptr = tostring(uintptr)
 		end
 		-- what are the promises that the intepreted code will maintain all bits of precision?
 		-- should I be encoding it and decoding it both one byte at a time?
