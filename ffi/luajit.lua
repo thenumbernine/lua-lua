@@ -3,6 +3,11 @@ local ffi = require 'ffi'
 ffi.cdef[[
 // lua.h
 
+typedef struct lua_State lua_State;
+typedef int (*lua_CFunction) (lua_State *L);
+typedef double lua_Number;
+typedef ptrdiff_t lua_Integer;
+
 enum { LUA_VERSION_NUM = 501 };
 enum { LUA_MULTRET = -1 };
 enum { LUA_REGISTRYINDEX = -10000 };
@@ -14,8 +19,6 @@ enum { LUA_ERRRUN = 2 };
 enum { LUA_ERRSYNTAX = 3 };
 enum { LUA_ERRMEM = 4 };
 enum { LUA_ERRERR = 5 };
-typedef struct lua_State lua_State;
-typedef int (*lua_CFunction) (lua_State *L);
 enum { LUA_TNONE = -1 };
 enum { LUA_TNIL = 0 };
 enum { LUA_TBOOLEAN = 1 };
@@ -26,9 +29,6 @@ enum { LUA_TTABLE = 5 };
 enum { LUA_TFUNCTION = 6 };
 enum { LUA_TUSERDATA = 7 };
 enum { LUA_TTHREAD = 8 };
-typedef double lua_Number;
-typedef ptrdiff_t lua_Integer;
-
 enum { LUA_TPROTO = 9 };
 enum { LUA_TCDATA = 10 };
 
