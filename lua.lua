@@ -349,7 +349,7 @@ function Lua:runAndPush(code, ...)
 	self:assert(lib.lua_pcall(L, n, lib.LUA_MULTRET, errHandlerLoc))
 end
 
--- this is very specific to pureffi/threads.lua's "threads.new" function
+-- this is very specific to thread/thread.lua's Thread:init()
 -- loads 'code' in the enclosed Lua state
 -- serializes and passes any args into 'code's function
 -- calls the function
