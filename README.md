@@ -2,9 +2,6 @@
 
 I know the repo name is `lua-lua`, but it's directly tied to the LuaJIT ffi library so it is in fact LuaJIT-for-LuaJIT.
 
-I spun this off of [CapsAdmin luajit-pureffi/threads.lua](https://github.com/CapsAdmin/luajit-pureffi/blob/main/threads.lua),
-which makes use of LuaJIT-within-LuaJIT calls, and then just kept wrapping classes and adding more OOP bureaucracy.
-
 Create your own distinct `lua_State`'s in LuaJIT.
 
 Allows passing data between states.
